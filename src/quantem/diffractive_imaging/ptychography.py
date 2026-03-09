@@ -20,6 +20,7 @@ from quantem.diffractive_imaging.ptycho_utils import SimpleBatcher
 from quantem.diffractive_imaging.ptychography_base import PtychographyBase
 from quantem.diffractive_imaging.ptychography_opt import PtychographyOpt
 from quantem.diffractive_imaging.ptychography_visualizations import PtychographyVisualizations
+from quantem.diffractive_imaging.benchmark_utils import time_sync
 
 if TYPE_CHECKING:
     import torch
@@ -204,8 +205,13 @@ class Ptychography(PtychographyOpt, PtychographyVisualizations, PtychographyBase
             val_mode=self.val_mode,
         )
         pbar = tqdm(range(num_iters), disable=not self.verbose)
+        
+        total_t0 = time_sync()
 
         for a0 in pbar:
+            
+            iter_t0 = time_sync()
+            
             consistency_loss = 0.0
             total_loss = 0.0
             self._reset_iter_constraints()
@@ -247,6 +253,8 @@ class Ptychography(PtychographyOpt, PtychographyVisualizations, PtychographyBase
             num_batches = len(batcher)
             total_loss = total_loss / num_batches
             consistency_loss = consistency_loss / num_batches
+            
+            iter_t1 = time_sync() # Time the iter that actually does work for fairness
 
             # Validation pass (no gradient, no optimizer steps)
             val_loss = None
@@ -299,11 +307,17 @@ class Ptychography(PtychographyOpt, PtychographyVisualizations, PtychographyBase
             else:
                 pbar.set_description(f"Iter {a0 + 1}/{num_iters}, Loss: {total_loss:.3e}")
 
+            print(f"Iter {a0 + 1} took {(iter_t1-iter_t0):.3f} sec")
+            
+            total_t1 = time_sync()
+            
         gc.collect()
         torch.cuda.empty_cache()
         if hasattr(torch, "mps") and torch.backends.mps.is_available():
             torch.mps.empty_cache()
         gc.collect()
+        
+        print(f"Completed {num_iters} iters with {(total_t1-total_t0):.3f} sec, avg_iter_t = {((total_t1-total_t0)/num_iters):.3f} sec.")
 
         return self
 
