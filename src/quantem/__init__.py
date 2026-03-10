@@ -11,3 +11,5 @@ from quantem import imaging as imaging
 from quantem import diffractive_imaging as diffractive_imaging
 
 __version__ = version("quantem")
+
+print("Load quantem (2026.03.08 CHL) from editable local repo")
